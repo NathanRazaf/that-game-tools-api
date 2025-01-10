@@ -11,25 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Clone osu-tools
-        run: git clone https://github.com/ppy/osu-tools.git
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Build PerformanceCalculator
-        run: |
-          cd osu-tools/PerformanceCalculator
-          dotnet publish -c Release -r linux-x64 --self-contained false
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: performance-calculator
-          path: osu-tools/PerformanceCalculator/bin/Release/net8.0/linux-x64/
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:

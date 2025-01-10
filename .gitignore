@@ -1,4 +1,4 @@
 node_modules/
 osu-tools/
 dist/
-.env
+src/.env

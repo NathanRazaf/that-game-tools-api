@@ -1,0 +1,26 @@
+{
+  "name": "that-game-tools-api",
+  "version": "1.0.0",
+  "description": "it's for osu but don't tell anyone",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node-dev --respawn src/server.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@sinclair/typebox": "^0.34.13",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@fastify/type-provider-typebox": "^5.1.0",
+    "@types/node": "^22.10.5",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.3"
+  }
+}
