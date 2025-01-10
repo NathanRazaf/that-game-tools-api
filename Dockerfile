@@ -14,7 +14,6 @@ COPY . .
 RUN npm run build
 
 # Final stage
-# Changed this line to use the runtime image instead of slim
 FROM mcr.microsoft.com/dotnet/runtime:8.0
 WORKDIR /app
 
@@ -27,10 +26,10 @@ RUN apt-get update && apt-get install -y curl && \
 
 COPY --from=ts-build /app/dist ./dist
 COPY --from=ts-build /app/package*.json ./
-COPY --from=osu-tools-build /build/osu-tools/PerformanceCalculator/bin/Release/net8.0/linux-x64/ ./dist/PerformanceCalculatorLinux/
+COPY --from=osu-tools-build /build/osu-tools/PerformanceCalculator/bin/Release/net8.0/linux-x64/ ./dist/perfcalc/
 
 RUN npm install --production
-RUN chmod +x ./dist/PerformanceCalculatorLinux/PerformanceCalculator
+RUN chmod +x ./dist/perfcalc/PerformanceCalculator
 RUN mkdir -p ./dist/cache
 
 EXPOSE 3000

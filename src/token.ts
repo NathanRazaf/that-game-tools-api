@@ -1,4 +1,4 @@
-const axios = require('axios');
+import axios from 'axios';
 const TOKEN_URL = 'https://osu.ppy.sh/oauth/token';
 
 let cachedToken : string | undefined;

@@ -1,0 +1,15 @@
+version: '3'
+services:
+  api:
+    build: .              # Uses your existing Dockerfile
+    ports:
+      - "3000:3000"      # Maps port 3000 on your machine to container's port 3000
+    env_file:
+      - src/.env         # Your environment variables
+    depends_on:
+      - redis           # Ensures redis starts before the API
+
+  redis:
+    image: redis:alpine  # Uses official Redis image
+    ports:
+      - "6379:6379"     # Maps Redis port

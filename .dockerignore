@@ -3,5 +3,5 @@ npm-debug.log
 dist
 .git
 .gitignore
-.env
+src/.env
 *.md

@@ -1,99 +1,162 @@
-import Fastify from 'fastify';
+import Fastify, {FastifyReply, FastifyRequest} from 'fastify';
 import cors from '@fastify/cors';
-import {Type} from '@sinclair/typebox';
-import {calculatePerformance} from './services/performance';
-import getAccessToken from "./token";
-import axios from "axios";
-import {Mod} from "./types/score";
+import calcRoutes from "./routes/calc_routes";
+import fastifyRateLimit from "@fastify/rate-limit";
+import { Redis } from "ioredis";
 import dotenv from 'dotenv';
+import * as mongoose from "mongoose";
+import ApiKeyModel from "./models/api_key";
+import apiKeyRoutes from "./routes/api_key_routes";
 
 dotenv.config();
 
-const fastify = Fastify({
+// Types
+interface ApiKey {
+    key: string;
+    owner: string;
+    createdAt: Date;
+    lastUsed?: Date;
+    isActive: boolean;
+}
+
+interface CreateKeyBody {
+    owner: string;
+}
+
+// Extend Fastify types
+interface ExtendedFastifyRequest extends FastifyRequest {
+    apiKeyDetails?: ApiKey;
+}
+
+
+// Create Fastify instance
+const server = Fastify({
     logger: true
 });
 
-fastify.register(cors, {
-    origin: true // Configure according to your needs
-});
+// Setup Redis for rate limiting
+const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
-async function getScoreDetails(scoreId : number) {
-    try {
-        const token = await getAccessToken();
-        const response = await axios.get(`https://osu.ppy.sh/api/v2/scores/${scoreId}`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "x-api-version": 20220705
-            }
+// Configure rate limiting
+async function setupRateLimit() {
+    await server.register(fastifyRateLimit, {
+        max: 100,
+        timeWindow: '15 minutes',
+        redis: redis,
+        keyGenerator: (req) => {
+            return req.headers['x-api-key'] as string;
+        },
+        errorResponseBuilder: () => ({
+            statusCode: 429,
+            error: 'Too Many Requests',
+            message: 'Rate limit exceeded, please try again later'
         })
-        const data = response.data;
-        const beatmapId = data.beatmap_id;
-        const mods = data.mods.map((mod: Mod) => mod.acronym);
-        const accPercent = data.accuracy * 100;
-        const combo = data.max_combo;
-        const nmiss = data.statistics.miss || 0;
-        const largeTickMiss = data.statistics.large_tick_miss || 0;
-        const sliderTailMiss = (data.maximum_statistics.slider_tail_hit - data.statistics.slider_tail_hit) || 0;
-        return {beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss};
-    } catch (error) {
-        throw error;
-    }
+    });
 }
+
+// CORS
+server.register(cors, {
+    origin: true
+});
 
 // Register route schema
-const calculateSchema = {
-    body: Type.Object({
-        scoreId: Type.Optional(Type.Number()),
-        beatmapId: Type.Optional(Type.Number()),
-        mods: Type.Optional(Type.Array(Type.String())),
-        accPercent: Type.Optional(Type.Number()),
-        n50: Type.Optional(Type.Number()),
-        n100: Type.Optional(Type.Number()),
-        combo: Type.Optional(Type.Number()),
-        nmiss: Type.Optional(Type.Number()),
-        sliderTailMiss: Type.Optional(Type.Number()),
-        largeTickMiss: Type.Optional(Type.Number())
-    })
-};
+server.register(calcRoutes);
+server.register(apiKeyRoutes);
 
-fastify.post('/calculate', { schema: calculateSchema }, async (request: any, reply) => {
+// API key verification hook
+server.addHook('preHandler', async (request: any, reply: any) => {
+    // First, check if this is an admin route
+    const adminRoutes = [
+        { url: '/api/keys', method: 'GET' },
+        { url: '/api/keys/:key', method: 'DELETE' }
+    ];
+
+    // Check if current request is an admin route
+    const isAdminRoute = adminRoutes.some(route =>
+        route.url === request.routeOptions.url &&
+        route.method === request.method
+    );
+
+    // Skip all auth for POST /api/keys (key creation)
+    if (request.routeOptions.url === '/api/keys' && request.method === 'POST') {
+        return;
+    }
+
+    const apiKey = request.headers['x-api-key'];
+
+    if (!apiKey) {
+        reply.code(401).send({ error: 'API key is required' });
+        return;
+    }
+
+    // For admin routes, check if key matches ADMIN_KEY
+    if (isAdminRoute) {
+        if (apiKey !== process.env.ADMIN_KEY) {
+            reply.code(403).send({ error: 'Admin access required' });
+            return;
+        }
+        request.isAdmin = true;
+        return; // Skip regular API key check for admin routes
+    }
+
+    // For non-admin routes, verify regular API key
     try {
-        let scoreParams;
+        const keyDetails = await ApiKeyModel.findOne({
+            key: apiKey,
+            isActive: true
+        });
 
-        if (request.body.scoreId) {
-            try {
-                scoreParams = await getScoreDetails(request.body.scoreId);
-            } catch (error) {
-                reply.status(400).send({ error: `Failed to fetch score details: ${error instanceof Error ? error.message : 'Unknown error'}` });
-                return;
-            }
-        } else {
-            scoreParams = {
-                beatmapId: request.body.beatmapId,
-                mods: request.body.mods,
-                accPercent: request.body.accPercent,
-                n50: request.body.n50,
-                n100: request.body.n100,
-                combo: request.body.combo,
-                nmiss: request.body.nmiss,
-                sliderTailMiss: request.body.sliderTailMiss || 0,
-                largeTickMiss: request.body.largeTickMiss || 0
-            };
+        if (!keyDetails) {
+            reply.code(403).send({ error: 'Invalid or inactive API key' });
+            return;
         }
 
-        const result = await calculatePerformance(scoreParams, __dirname);
-        reply.send(result);
+        // Update last used timestamp
+        await ApiKeyModel.updateOne(
+            { key: apiKey },
+            { $set: { lastUsed: new Date() }}
+        );
+
+        //@ts-ignore
+        request.apiKeyDetails = keyDetails;
     } catch (error) {
-        reply.status(500).send({ error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` });
+        request.log.error(error);
+        reply.code(500).send({ error: 'Error verifying API key' });
     }
 });
 
-// Start server
-try {
-    fastify.listen({port: 3000, host: '0.0.0.0'}).then(r => {
-        console.log(`Server listening on port ${r}`);
-    });
-} catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
+// Connect to MongoDB
+async function connectDB() {
+    try {
+        await mongoose.connect(process.env.MONGODB_URI as string, {
+            dbName: 'that-game-tools-db'
+        });
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('MongoDB connection error:', error);
+        process.exit(1);
+    }
 }
+// Start server
+async function start() {
+    try {
+        await connectDB();
+        await setupRateLimit();
+        await server.listen({ port: parseInt(process.env.PORT || '3000'), host: '0.0.0.0' });
+
+        const address = server.server.address();
+        server.log.info(`Server listening on ${address}`);
+    } catch (err) {
+        server.log.error(err);
+        process.exit(1);
+    }
+}
+
+// Handle shutdown
+process.on('SIGINT', async () => {
+    await server.close();
+    await redis.quit();
+    process.exit(0);
+});
+
+start();
