@@ -1,0 +1,31 @@
+name: Build and Deploy
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *'  # Daily build to check for osu-tools updates
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Clone osu-tools
+        run: git clone https://github.com/ppy/osu-tools.git
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Build PerformanceCalculator
+        run: |
+          cd osu-tools/PerformanceCalculator
+          dotnet publish -c Release -r linux-x64 --self-contained false
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-calculator
+          path: osu-tools/PerformanceCalculator/bin/Release/net6.0/linux-x64/publish/
