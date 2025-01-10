@@ -28,4 +28,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: performance-calculator
-          path: osu-tools/PerformanceCalculator/bin/Release/net6.0/linux-x64/publish/
+          path: osu-tools/PerformanceCalculator/bin/Release/net8.0/linux-x64/
