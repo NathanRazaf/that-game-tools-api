@@ -29,3 +29,16 @@ jobs:
         with:
           name: performance-calculator
           path: osu-tools/PerformanceCalculator/bin/Release/net8.0/linux-x64/
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest
