@@ -1,5 +1,5 @@
 import {Type} from "@sinclair/typebox";
-import {calculatePerformance, getScoreDetails} from "../services/performance";
+import {simulatePerformance, getScoreDetails} from "../services/simulator";
 import {FastifyInstance} from "fastify";
 import path from 'path';
 
@@ -46,7 +46,7 @@ async function calcNewScore(request: any, reply : any) {
         }
 
         const parentDir = path.resolve(__dirname, '..');
-        const result = await calculatePerformance(scoreParams, parentDir);
+        const result = await simulatePerformance(scoreParams, parentDir);
         reply.send(result);
     } catch (error) {
         reply.status(500).send({ error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` });
@@ -54,7 +54,6 @@ async function calcNewScore(request: any, reply : any) {
 }
 
 
-interface MyFastifyInstance extends FastifyInstance {}
-export default async function calcRoutes(server: MyFastifyInstance) {
-    server.post('/calc/new_score', { schema: calculateSchema }, calcNewScore);
+export default async function simulateRoutes(server: FastifyInstance) {
+    server.post('/simulate/new_score', { schema: calculateSchema }, calcNewScore);
 }

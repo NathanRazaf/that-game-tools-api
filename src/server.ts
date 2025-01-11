@@ -1,33 +1,15 @@
-import Fastify, {FastifyReply, FastifyRequest} from 'fastify';
+import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import calcRoutes from "./routes/calc_routes";
+import simulateRoutes from "./routes/simulator_routes";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { Redis } from "ioredis";
 import dotenv from 'dotenv';
 import * as mongoose from "mongoose";
 import ApiKeyModel from "./models/api_key";
 import apiKeyRoutes from "./routes/api_key_routes";
+import converterRoutes from "./routes/converter_routes";
 
 dotenv.config();
-
-// Types
-interface ApiKey {
-    key: string;
-    owner: string;
-    createdAt: Date;
-    lastUsed?: Date;
-    isActive: boolean;
-}
-
-interface CreateKeyBody {
-    owner: string;
-}
-
-// Extend Fastify types
-interface ExtendedFastifyRequest extends FastifyRequest {
-    apiKeyDetails?: ApiKey;
-}
-
 
 // Create Fastify instance
 const server = Fastify({
@@ -60,8 +42,9 @@ server.register(cors, {
 });
 
 // Register route schema
-server.register(calcRoutes);
+server.register(simulateRoutes);
 server.register(apiKeyRoutes);
+server.register(converterRoutes);
 
 // API key verification hook
 server.addHook('preHandler', async (request: any, reply: any) => {

@@ -5,38 +5,8 @@ import {ScoreParams, PerformanceResult, Mod} from '../types/score';
 import getAccessToken from "../token";
 import axios from "axios";
 
-async function deleteCacheFile(beatmapId: number, dir: string): Promise<void> {
-    const cacheFilePath = path.join(dir, './cache', `${beatmapId}.osu`);
-    console.log(`Deleting cache file: ${cacheFilePath}`);
-    if (fs.existsSync(cacheFilePath)) {
-        fs.unlinkSync(cacheFilePath);
-    }
-}
 
-export async function getScoreDetails(scoreId : number) {
-    try {
-        const token = await getAccessToken();
-        const response = await axios.get(`https://osu.ppy.sh/api/v2/scores/${scoreId}`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "x-api-version": 20220705
-            }
-        })
-        const data = response.data;
-        const beatmapId = data.beatmap_id;
-        const mods = data.mods.map((mod: Mod) => mod.acronym);
-        const accPercent = data.accuracy * 100;
-        const combo = data.max_combo;
-        const nmiss = data.statistics.miss || 0;
-        const largeTickMiss = data.statistics.large_tick_miss || 0;
-        const sliderTailMiss = (data.maximum_statistics.slider_tail_hit - data.statistics.slider_tail_hit) || 0;
-        return {beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss};
-    } catch (error) {
-        throw error;
-    }
-}
-
-export async function calculatePerformance(scoreParams: ScoreParams, dir: string): Promise<PerformanceResult> {
+export async function simulatePerformance(scoreParams: ScoreParams, dir: string): Promise<PerformanceResult> {
     const { beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss, n50, n100 } = scoreParams;
 
     const executablePath = path.join(dir, 'perfcalc', 'PerformanceCalculator');
@@ -88,6 +58,37 @@ export async function calculatePerformance(scoreParams: ScoreParams, dir: string
             }
         });
     });
+}
+
+async function deleteCacheFile(beatmapId: number, dir: string): Promise<void> {
+    const cacheFilePath = path.join(dir, './cache', `${beatmapId}.osu`);
+    console.log(`Deleting cache file: ${cacheFilePath}`);
+    if (fs.existsSync(cacheFilePath)) {
+        fs.unlinkSync(cacheFilePath);
+    }
+}
+
+export async function getScoreDetails(scoreId : number) {
+    try {
+        const token = await getAccessToken();
+        const response = await axios.get(`https://osu.ppy.sh/api/v2/scores/${scoreId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "x-api-version": 20220705
+            }
+        })
+        const data = response.data;
+        const beatmapId = data.beatmap_id;
+        const mods = data.mods.map((mod: Mod) => mod.acronym);
+        const accPercent = data.accuracy * 100;
+        const combo = data.max_combo;
+        const nmiss = data.statistics.miss || 0;
+        const largeTickMiss = data.statistics.large_tick_miss || 0;
+        const sliderTailMiss = (data.maximum_statistics.slider_tail_hit - data.statistics.slider_tail_hit) || 0;
+        return {beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss};
+    } catch (error) {
+        throw error;
+    }
 }
 
 function calculateGrade(stats : PerformanceResult['stats'], mods: string[]) {
