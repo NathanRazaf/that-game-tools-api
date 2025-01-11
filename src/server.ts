@@ -17,7 +17,7 @@ const server = Fastify({
 });
 
 // Setup Redis for rate limiting
-const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
+const redis = new Redis(process.env.REDIS_PUBLIC_URL || 'redis://redis:6379');
 
 // Configure rate limiting
 async function setupRateLimit() {
