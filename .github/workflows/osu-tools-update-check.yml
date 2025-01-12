@@ -57,7 +57,7 @@ jobs:
             git commit -m "chore: update osu-tools to ${LATEST_HASH:0:7}"
           
             # Try to push with error handling
-            git push || handle_error "Failed to push changes"
+            git push "https://${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git" || handle_error "Failed to push changes"
           
             echo "Successfully updated osu-tools version"
           fi
