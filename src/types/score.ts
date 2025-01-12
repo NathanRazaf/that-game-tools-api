@@ -15,6 +15,7 @@ export interface Mod {
 }
 
 export interface PerformanceResult {
+    beatmap_id: number;
     pp: number;
     stats: {
         great: number;

@@ -43,6 +43,7 @@ export async function simulatePerformance(scoreParams: ScoreParams, dir: string)
                 deleteCacheFile(beatmapId, dir);
 
                 const result: PerformanceResult = {
+                    beatmap_id: beatmapId,
                     pp: parseFloat(jsonOutput.performance_attributes.pp.toFixed(3)),
                     stats: jsonOutput.score.statistics,
                     grade: calculateGrade(jsonOutput.score.statistics, mods),
