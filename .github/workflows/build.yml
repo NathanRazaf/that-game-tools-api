@@ -4,6 +4,7 @@ on:
     branches: [ main ] # Only run on pushes to the main branch
     paths-ignore:
       - '.github/**'
+      - 'README.md'
 
 jobs:
   build:

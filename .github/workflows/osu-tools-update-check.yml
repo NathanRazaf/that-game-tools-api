@@ -1,38 +1,39 @@
-name: Check osu-tools updates
+name: Check osu-tools updates and Build
 on:
   schedule:
     - cron: '0 0 * * *'  # Daily check
-  workflow_dispatch:      # Manual trigger
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   check-osu-tools:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # Explicitly grant permission to push commits
+      contents: write  # Explicitly grant permission to push commits
     steps:
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.PAT_TOKEN }}  # Needed for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}  # Needed for authentication
           ref: main
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Check osu-tools for updates
+        id: check_osu_tools  # Add an ID for conditional triggering
         run: |
-          # Create function to handle errors
+          # Error handling function
           handle_error() {
             echo "::error::$1"
             exit 1
           }
 
-          # Get the current hash if file exists
+          # Load current hash from file if it exists
           CURRENT_HASH=""
           if [ -f "osu-tools-version" ]; then
             CURRENT_HASH=$(cat osu-tools-version)
           fi
 
-          # Get the latest commit hash with error handling
+          # Fetch latest commit hash from osu-tools repo
           RESPONSE=$(curl -s -f "https://api.github.com/repos/ppy/osu-tools/commits/master") || handle_error "Failed to fetch from GitHub API"
           LATEST_HASH=$(echo $RESPONSE | jq -r .sha) || handle_error "Failed to parse GitHub API response"
 
@@ -43,26 +44,37 @@ jobs:
           echo "Current hash: $CURRENT_HASH"
           echo "Latest hash: $LATEST_HASH"
 
-          # Create or update version file
-          echo $LATEST_HASH > osu-tools-version
-
-          # Check for changes
-          if [ "$CURRENT_HASH" = "$LATEST_HASH" ]; then
-            echo "No updates to osu-tools"
-          else
+          # Update hash file and determine if there's an update
+          if [ "$CURRENT_HASH" != "$LATEST_HASH" ]; then
             echo "Updates found in osu-tools"
+            echo $LATEST_HASH > osu-tools-version
             git config --global user.name 'github-actions[bot]'
             git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
             git add osu-tools-version
             git commit -m "chore: update osu-tools to ${LATEST_HASH:0:7}"
-          
-            # Try to push with error handling
-            git push "https://${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git" || handle_error "Failed to push changes"
-          
-            echo "Successfully updated osu-tools version"
+            git push origin main || handle_error "Failed to push changes"
+            echo "updated=true" >> $GITHUB_ENV
+          else
+            echo "No updates to osu-tools"
+            echo "updated=false" >> $GITHUB_ENV
           fi
 
-      - name: Check Success
-        if: ${{ success() }}
-        run: echo "Successfully completed osu-tools check"
+  build-and-deploy:
+    needs: check-osu-tools
+    if: env.updated == 'true'  # Run only if osu-tools has an update
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ghcr.io/nathanrazaf/that-game-tools-api:latest
