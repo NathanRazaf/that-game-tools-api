@@ -12,7 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # Needed for authentication
+          token: ${{ secrets.PAT_TOKEN }}  # Needed for authentication
+          ref: main
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
