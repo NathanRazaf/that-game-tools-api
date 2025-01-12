@@ -55,10 +55,10 @@ jobs:
             git add osu-tools-version
             git commit -m "chore: update osu-tools to ${LATEST_HASH:0:7}"
             git push origin main || handle_error "Failed to push changes"
-            echo "::set-output name=updated::true"  # Set output for downstream job
+            echo "updated=true" >> $GITHUB_OUTPUT
           else
             echo "No updates to osu-tools"
-            echo "::set-output name=updated::false"  # No update
+            echo "updated=false" >> $GITHUB_OUTPUT
           fi
 
   build-and-deploy:
