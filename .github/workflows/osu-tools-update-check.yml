@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # Explicitly grant permission to push commits
+    outputs:
+      updated: ${{ steps.check.outputs.updated }}  # Define an output variable
     steps:
       - uses: actions/checkout@v2
         with:
@@ -19,7 +21,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Check osu-tools for updates
-        id: check_osu_tools  # Add an ID for conditional triggering
+        id: check  # Add an ID to reference outputs
         run: |
           # Error handling function
           handle_error() {
@@ -53,15 +55,15 @@ jobs:
             git add osu-tools-version
             git commit -m "chore: update osu-tools to ${LATEST_HASH:0:7}"
             git push origin main || handle_error "Failed to push changes"
-            echo "updated=true" >> $GITHUB_ENV
+            echo "::set-output name=updated::true"  # Set output for downstream job
           else
             echo "No updates to osu-tools"
-            echo "updated=false" >> $GITHUB_ENV
+            echo "::set-output name=updated::false"  # No update
           fi
 
   build-and-deploy:
     needs: check-osu-tools
-    if: env.updated == 'true'  # Run only if osu-tools has an update
+    if: needs.check-osu-tools.outputs.updated == 'true'  # Use the output variable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
