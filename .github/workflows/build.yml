@@ -1,10 +1,13 @@
 name: Build and Deploy
 on:
   push:
-    branches: [ main ]  # This will catch both your direct pushes and the osu-tools update commits
+    branches: [ main ] # Only run on pushes to the main branch
+    paths-ignore:
+      - '.github/**'
 
 jobs:
   build:
+    if: github.actor == 'github-actions[bot]' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
