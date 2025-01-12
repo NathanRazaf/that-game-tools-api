@@ -1,0 +1,67 @@
+name: Check osu-tools updates
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily check
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  check-osu-tools:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # Explicitly grant permission to push commits
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # Needed for authentication
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Check osu-tools for updates
+        run: |
+          # Create function to handle errors
+          handle_error() {
+            echo "::error::$1"
+            exit 1
+          }
+
+          # Get the current hash if file exists
+          CURRENT_HASH=""
+          if [ -f "osu-tools-version" ]; then
+            CURRENT_HASH=$(cat osu-tools-version)
+          fi
+
+          # Get the latest commit hash with error handling
+          RESPONSE=$(curl -s -f "https://api.github.com/repos/ppy/osu-tools/commits/master") || handle_error "Failed to fetch from GitHub API"
+          LATEST_HASH=$(echo $RESPONSE | jq -r .sha) || handle_error "Failed to parse GitHub API response"
+
+          if [ -z "$LATEST_HASH" ] || [ "$LATEST_HASH" = "null" ]; then
+            handle_error "Invalid hash received from GitHub API"
+          fi
+
+          echo "Current hash: $CURRENT_HASH"
+          echo "Latest hash: $LATEST_HASH"
+
+          # Create or update version file
+          echo $LATEST_HASH > osu-tools-version
+
+          # Check for changes
+          if [ "$CURRENT_HASH" = "$LATEST_HASH" ]; then
+            echo "No updates to osu-tools"
+          else
+            echo "Updates found in osu-tools"
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+            git add osu-tools-version
+            git commit -m "chore: update osu-tools to ${LATEST_HASH:0:7}"
+          
+            # Try to push with error handling
+            git push || handle_error "Failed to push changes"
+          
+            echo "Successfully updated osu-tools version"
+          fi
+
+      - name: Check Success
+        if: ${{ success() }}
+        run: echo "Successfully completed osu-tools check"
