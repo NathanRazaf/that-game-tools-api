@@ -23,6 +23,6 @@ async function getRankFromPPRoute(request: any, reply: any) {
 }
 
 export default async function converterRoutes(server: any) {
-    server.get('/convert/pp', getPPFromRankRoute);
-    server.get('/convert/rank', getRankFromPPRoute);
+    server.get('/convert/to-pp', getPPFromRankRoute);
+    server.get('/convert/to-rank', getRankFromPPRoute);
 }
