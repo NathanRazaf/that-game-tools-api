@@ -3,7 +3,7 @@ import {getPPFromRank, getRankFromPP} from "../services/pp_rank_converter";
 async function getPPFromRankRoute(request: any, reply: any) {
     try {
         const rank = request.query.rank;
-        const mode = request.query.mode;
+        const mode = request.query.mode; // 0 = osu!, 1 = Taiko, 2 = CtB, 3 = osu!mania
         const response = await getPPFromRank(rank, mode);
         reply.send({ pp: response });
     } catch (error) {

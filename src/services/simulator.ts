@@ -1,30 +1,51 @@
 import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import {ScoreParams, PerformanceResult, Mod} from '../types/score';
+import {
+    OsuScoreParams,
+    PerformanceResult,
+    TaikoScoreParams,
+    CatchScoreParams,
+    ManiaScoreParams
+} from '../types/score';
 import getAccessToken from "../token";
 import axios from "axios";
 
+interface SimulateParams {
+    mode: 'osu' | 'taiko' | 'catch' | 'mania';
+    scoreParams: OsuScoreParams | TaikoScoreParams | CatchScoreParams | ManiaScoreParams;
+}
 
-export async function simulatePerformance(scoreParams: ScoreParams, dir: string): Promise<PerformanceResult> {
-    const { beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss, n50, n100 } = scoreParams;
-
+async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: string): Promise<PerformanceResult> {
+    const { beatmapId, mods, ...restParams } = scoreParams;
     const executablePath = path.join(dir, 'perfcalc', 'PerformanceCalculator');
     const modsExecArray = mods.flatMap((mod) => ['-m', mod.toUpperCase()]);
 
-    let execArray = [
-        'simulate', 'osu', beatmapId.toString(),
-    ];
+    let execArray = ['simulate', mode, beatmapId.toString()];
 
-    if (combo !== undefined) execArray.push('-c', combo.toString());
-    if (nmiss !== undefined) execArray.push('-X', nmiss.toString());
-    if (sliderTailMiss !== undefined) execArray.push('-S', sliderTailMiss.toString());
-    if (largeTickMiss !== undefined) execArray.push('-L', largeTickMiss.toString());
-    if (accPercent !== undefined) execArray.push('-a', accPercent.toString());
-    if (n50 !== undefined) execArray.push('-M', n50.toString());
-    if (n100 !== undefined) execArray.push('-G', n100.toString());
+    const paramMap: Record<string, string> = {
+        combo: '-c',
+        nmiss: '-X',
+        sliderTailMiss: '-S',
+        largeTickMiss: '-L',
+        accPercent: '-a',
+        n300: '--greats',
+        n50: '-M',
+        n100: '-G',
+        tinyDroplets: '-T',
+        droplets: '-D',
+        score: '-s'
+    };
+
+    Object.entries(restParams).forEach(([key, value]) => {
+        if (value !== undefined && paramMap[key]) {
+            execArray.push(paramMap[key], value.toString());
+        }
+    });
 
     execArray = [...execArray, ...modsExecArray, '-j'];
+
+    console.log(`Executing: ${executablePath} ${execArray.join(' ')}`);
 
     return new Promise((resolve, reject) => {
         execFile(executablePath, execArray, (error, stdout) => {
@@ -35,6 +56,7 @@ export async function simulatePerformance(scoreParams: ScoreParams, dir: string)
 
             try {
                 const lines = stdout.split('\n');
+                console.log(lines);
                 if (lines[0].includes('Downloading')) {
                     lines.shift();
                 }
@@ -45,7 +67,12 @@ export async function simulatePerformance(scoreParams: ScoreParams, dir: string)
                 const result: PerformanceResult = {
                     beatmap_id: beatmapId,
                     pp: parseFloat(jsonOutput.performance_attributes.pp.toFixed(3)),
-                    stats: jsonOutput.score.statistics,
+                    stats: {
+                        great: jsonOutput.score.statistics.great || 0,
+                        ok: jsonOutput.score.statistics.ok || 0,
+                        meh: jsonOutput.score.statistics.meh || 0,
+                        miss: jsonOutput.score.statistics.miss || 0
+                    },
                     grade: calculateGrade(jsonOutput.score.statistics, mods),
                     star_rating: jsonOutput.difficulty_attributes.star_rating,
                     combo: jsonOutput.score.combo,
@@ -61,6 +88,56 @@ export async function simulatePerformance(scoreParams: ScoreParams, dir: string)
     });
 }
 
+export async function simulateOsuPerformance(scoreParams: OsuScoreParams, dir: string): Promise<PerformanceResult> {
+    console.log("osu!");
+    return simulatePerformance({ mode: 'osu', scoreParams }, dir);
+}
+
+export async function simulateTaikoPerformance(scoreParams: TaikoScoreParams, dir: string): Promise<PerformanceResult> {
+    console.log("taiko!");
+    return simulatePerformance({ mode: 'taiko', scoreParams }, dir);
+}
+
+export async function simulateCatchPerformance(scoreParams: CatchScoreParams, dir: string): Promise<PerformanceResult> {
+    console.log("catch!");
+    return simulatePerformance({ mode: 'catch', scoreParams }, dir);
+}
+
+export async function simulateManiaPerformance(scoreParams: ManiaScoreParams, dir: string): Promise<PerformanceResult> {
+    console.log("mania!");
+    return simulatePerformance({ mode: 'mania', scoreParams }, dir);
+}
+
+export async function getScoreDetails(scoreId: number): Promise<PerformanceResult> {
+    try {
+        const token = await getAccessToken();
+        const response = await axios.get(`https://osu.ppy.sh/api/v2/scores/${scoreId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "x-api-version": 20220705
+            }
+        });
+        const data = response.data;
+
+        return {
+            beatmap_id: data.beatmap_id,
+            pp: data.pp,
+            stats: {
+                great: data.statistics.great || 0,
+                ok: data.statistics.ok || 0,
+                meh: data.statistics.meh || 0,
+                miss: data.statistics.miss || 0
+            },
+            grade: data.rank,
+            star_rating: data.beatmap.difficulty_rating,
+            combo: data.max_combo,
+            accuracy: data.accuracy * 100,
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
 async function deleteCacheFile(beatmapId: number, dir: string): Promise<void> {
     const cacheFilePath = path.join(dir, './cache', `${beatmapId}.osu`);
     console.log(`Deleting cache file: ${cacheFilePath}`);
@@ -69,71 +146,38 @@ async function deleteCacheFile(beatmapId: number, dir: string): Promise<void> {
     }
 }
 
-export async function getScoreDetails(scoreId : number) {
-    try {
-        const token = await getAccessToken();
-        const response = await axios.get(`https://osu.ppy.sh/api/v2/scores/${scoreId}`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "x-api-version": 20220705
-            }
-        })
-        const data = response.data;
-        const beatmapId = data.beatmap_id;
-        const mods = data.mods.map((mod: Mod) => mod.acronym);
-        const accPercent = data.accuracy * 100;
-        const combo = data.max_combo;
-        const nmiss = data.statistics.miss || 0;
-        const largeTickMiss = data.statistics.large_tick_miss || 0;
-        const sliderTailMiss = (data.maximum_statistics.slider_tail_hit - data.statistics.slider_tail_hit) || 0;
-        return {beatmapId, mods, accPercent, combo, nmiss, sliderTailMiss, largeTickMiss};
-    } catch (error) {
-        throw error;
-    }
-}
-
-function calculateGrade(stats : PerformanceResult['stats'], mods: string[]) {
-    const totalHits = stats.great + stats.ok + stats.meh + stats.miss;
-    // Perfect score
-    if (stats.great === totalHits) {
-        // SSH if HD or FL is enabled
+function calculateGrade(stats: PerformanceResult['stats'], mods: string[]): string {
+    const totalHits = (stats.great || 0) + (stats.ok || 0) + (stats.meh || 0) + (stats.miss || 0);
+    if ((stats.great || 0) === totalHits) {
         if (mods.includes('HD') || mods.includes('FL')) {
             return 'SSH';
         } else {
-            // SS otherwise
             return 'SS';
         }
     }
 
-    const proportion300s = stats.great / totalHits;
-    const proportion50s = stats.meh / totalHits;
+    const proportion300s = (stats.great || 0) / totalHits;
+    const proportion50s = (stats.meh || 0) / totalHits;
 
-    // Over 90% 300s, at most 1% 50s, and no misses
-    if (proportion300s > 0.9 && proportion50s <= 0.01 && stats.miss === 0) {
-        // SH if HD or FL is enabled
+    if (proportion300s > 0.9 && proportion50s <= 0.01 && (stats.miss || 0) === 0) {
         if (mods.includes('HD') || mods.includes('FL')) {
             return 'SH';
         } else {
-            // S otherwise
             return 'S';
         }
     }
 
-    // A if over 80% 300s and no misses OR over 90% 300s
-    if (proportion300s > 0.8 && stats.miss === 0 || proportion300s > 0.9) {
+    if (proportion300s > 0.8 && (stats.miss || 0) === 0 || proportion300s > 0.9) {
         return 'A';
     }
 
-    // B if over 70% 300s and no misses OR over 80% 300s
-    if (proportion300s > 0.7 && stats.miss === 0 || proportion300s > 0.8) {
+    if (proportion300s > 0.7 && (stats.miss || 0) === 0 || proportion300s > 0.8) {
         return 'B';
     }
 
-    // C if over 60% 300s
     if (proportion300s > 0.6) {
         return 'C';
     }
 
-    // Anything else is a D
     return 'D';
 }

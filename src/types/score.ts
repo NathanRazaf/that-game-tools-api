@@ -1,4 +1,4 @@
-export interface ScoreParams {
+export interface OsuScoreParams {
     beatmapId: number;
     mods: string[];
     accPercent?: number;
@@ -10,8 +10,32 @@ export interface ScoreParams {
     n100?: number;
 }
 
-export interface Mod {
-    acronym: string;
+export interface TaikoScoreParams {
+    beatmapId: number;
+    mods: string[];
+    accPercent?: number;
+    combo?: number;
+    nmiss?: number;
+    n100?: number;
+}
+
+export interface CatchScoreParams {
+    beatmapId: number;
+    mods: string[];
+    accPercent?: number;
+    combo?: number;
+    nmiss?: number;
+    tinyDroplets?: number;
+    droplets?: number;
+}
+
+export interface ManiaScoreParams {
+    beatmapId: number;
+    mods: string[];
+    n300?: number;
+    n100?: number;
+    n50?: number;
+    nmiss?: number;
 }
 
 export interface PerformanceResult {
