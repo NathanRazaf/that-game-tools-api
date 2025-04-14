@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
 import simulateRoutes from "./routes/simulator_routes";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { Redis } from "ioredis";
@@ -18,6 +20,54 @@ const server = Fastify({
 
 // Setup Redis for rate limiting
 const redis = new Redis(process.env.REDIS_PUBLIC_URL || 'redis://redis:6379');
+
+// Register Swagger
+async function setupSwagger() {
+    await server.register(fastifySwagger, {
+        swagger: {
+            info: {
+                title: 'OSU Performance Calculator API',
+                description: 'API for calculating performance points (PP) in OSU!',
+                version: '1.0.0'
+            },
+            externalDocs: {
+                url: 'https://github.com/NathanRazaf/that-game-tools-api',
+                description: 'Find more info here'
+            },
+            host: process.env.API_HOST || 'localhost:3000',
+            schemes: ['http', 'https'],
+            consumes: ['application/json'],
+            produces: ['application/json'],
+            securityDefinitions: {
+                apiKey: {
+                    type: 'apiKey',
+                    name: 'x-api-key',
+                    in: 'header'
+                }
+            },
+            security: [{ apiKey: [] }],
+            tags: [
+                { name: 'simulator', description: 'Performance simulation endpoints' },
+                { name: 'converter', description: 'PP and rank conversion endpoints' },
+                { name: 'api-keys', description: 'API key management endpoints' }
+            ]
+        }
+    });
+
+    await server.register(fastifySwaggerUi, {
+        routePrefix: '/documentation',
+        uiConfig: {
+            docExpansion: 'list',
+            deepLinking: false
+        },
+        uiHooks: {
+            onRequest: function (request, reply, next) { next(); },
+            preHandler: function (request, reply, next) { next(); }
+        },
+        staticCSP: true,
+        transformStaticCSP: (header) => header
+    });
+}
 
 // Configure rate limiting
 async function setupRateLimit() {
@@ -41,13 +91,13 @@ server.register(cors, {
     origin: true
 });
 
-// Register route schema
-server.register(simulateRoutes);
-server.register(apiKeyRoutes);
-server.register(converterRoutes);
-
 // API key verification hook
 server.addHook('preHandler', async (request: any, reply: any) => {
+    // Skip documentation routes
+    if (request.routeOptions.url.startsWith('/documentation')) {
+        return;
+    }
+
     // First, check if this is an admin route
     const adminRoutes = [
         { url: '/api/keys', method: 'GET' },
@@ -120,15 +170,33 @@ async function connectDB() {
         process.exit(1);
     }
 }
+
+// Add a basic API info route
+server.get('/', async () => {
+    return {
+        name: 'OSU Performance Calculator API',
+        version: '1.0.0',
+        documentation: '/documentation'
+    };
+});
+
 // Start server
 async function start() {
     try {
         await connectDB();
+        await setupSwagger();
         await setupRateLimit();
+
+        // Register routes after Swagger is set up
+        server.register(simulateRoutes);
+        server.register(apiKeyRoutes);
+        server.register(converterRoutes);
+
         await server.listen({ port: parseInt(process.env.PORT || '3000'), host: '0.0.0.0' });
 
         const address = server.server.address();
         server.log.info(`Server listening on ${address}`);
+        server.log.info('Documentation available at /documentation');
     } catch (err) {
         server.log.error(err);
         process.exit(1);

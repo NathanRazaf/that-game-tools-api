@@ -16,19 +16,23 @@ import {
 } from '../types/score';
 
 const PerformanceResultSchema = Type.Object({
-    beatmap_id: Type.Number(),
-    pp: Type.Number(),
+    beatmap_id: Type.Number({ description: 'ID of the beatmap' }),
+    pp: Type.Number({ description: 'Performance points value' }),
     stats: Type.Object({
-        great: Type.Number(),
-        ok: Type.Number(),
-        meh: Type.Number(),
-        miss: Type.Number()
-    }),
-    grade: Type.String(),
-    star_rating: Type.Number(),
-    combo: Type.Number(),
-    accuracy: Type.Number()
-});
+        great: Type.Number({ description: 'Number of great hits' }),
+        ok: Type.Number({ description: 'Number of ok hits' }),
+        meh: Type.Number({ description: 'Number of meh hits' }),
+        miss: Type.Number({ description: 'Number of misses' })
+    }, { description: 'Hit statistics' }),
+    grade: Type.String({ description: 'Score grade (SS, S, A, B, C, D)' }),
+    star_rating: Type.Number({ description: 'Star rating of the beatmap' }),
+    combo: Type.Number({ description: 'Maximum combo achieved' }),
+    accuracy: Type.Number({ description: 'Accuracy percentage' })
+}, { description: 'Performance calculation result' });
+
+const ErrorResponseSchema = Type.Object({
+    error: Type.String({ description: 'Error message' })
+}, { description: 'Error response' });
 
 async function returnsExistingScore(request: any, reply: any) {
     if (request.body.scoreId) {
@@ -53,57 +57,107 @@ async function returnsExistingScore(request: any, reply: any) {
     }
 }
 
+// Common headers schema for API key authentication
+const AuthHeadersSchema = Type.Object({
+    'x-api-key': Type.String({ description: 'API key for authentication' })
+});
+
 // Register route schema
 const osuCalcSchema = {
+    description: 'Calculate performance for osu! standard mode',
+    tags: ['simulator'],
+    headers: AuthHeadersSchema,
     body: Type.Object({
-        scoreId: Type.Optional(Type.Number()),
-        beatmapId: Type.Optional(Type.Number()),
-        mods: Type.Optional(Type.Array(Type.String())),
-        combo: Type.Optional(Type.Number()),
-        accPercent: Type.Optional(Type.Number()),
-        n100: Type.Optional(Type.Number()),
-        n50: Type.Optional(Type.Number()),
-        nmiss: Type.Optional(Type.Number()),
-        sliderTailMiss: Type.Optional(Type.Number()),
-        largeTickMiss: Type.Optional(Type.Number())
-    }),
+        scoreId: Type.Optional(Type.Number({ description: 'Existing score ID to retrieve' })),
+        beatmapId: Type.Optional(Type.Number({ description: 'Beatmap ID to calculate performance for' })),
+        mods: Type.Optional(Type.Array(Type.String(), { description: 'Array of mod strings (e.g. HD, DT, HR)' })),
+        combo: Type.Optional(Type.Number({ description: 'Maximum combo achieved' })),
+        accPercent: Type.Optional(Type.Number({ description: 'Accuracy percentage' })),
+        n100: Type.Optional(Type.Number({ description: 'Number of 100s (good hits)' })),
+        n50: Type.Optional(Type.Number({ description: 'Number of 50s (meh hits)' })),
+        nmiss: Type.Optional(Type.Number({ description: 'Number of misses' })),
+        sliderTailMiss: Type.Optional(Type.Number({ description: 'Number of slider tail misses' })),
+        largeTickMiss: Type.Optional(Type.Number({ description: 'Number of large tick misses' }))
+    }, { description: 'osu! standard score parameters' }),
     response: {
-        200: PerformanceResultSchema
+        200: PerformanceResultSchema,
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
     }
 };
 
 const taikoCalcSchema = {
+    description: 'Calculate performance for Taiko mode',
+    tags: ['simulator'],
+    headers: AuthHeadersSchema,
     body: Type.Object({
-        scoreId: Type.Optional(Type.Number()),
-        beatmapId: Type.Optional(Type.Number()),
-        mods: Type.Optional(Type.Array(Type.String())),
-        combo: Type.Optional(Type.Number()),
-        accPercent: Type.Optional(Type.Number()),
-        n100: Type.Optional(Type.Number()),
-        nmiss: Type.Optional(Type.Number())
-    }),
+        scoreId: Type.Optional(Type.Number({ description: 'Existing score ID to retrieve' })),
+        beatmapId: Type.Optional(Type.Number({ description: 'Beatmap ID to calculate performance for' })),
+        mods: Type.Optional(Type.Array(Type.String(), { description: 'Array of mod strings (e.g. HD, DT, HR)' })),
+        combo: Type.Optional(Type.Number({ description: 'Maximum combo achieved' })),
+        accPercent: Type.Optional(Type.Number({ description: 'Accuracy percentage' })),
+        n100: Type.Optional(Type.Number({ description: 'Number of 100s (good hits)' })),
+        nmiss: Type.Optional(Type.Number({ description: 'Number of misses' }))
+    }, { description: 'Taiko score parameters' }),
     response: {
-        200: PerformanceResultSchema
+        200: PerformanceResultSchema,
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
     }
 };
 
 const catchCalcSchema = {
+    description: 'Calculate performance for Catch the Beat mode',
+    tags: ['simulator'],
+    headers: AuthHeadersSchema,
     body: Type.Object({
-        scoreId: Type.Optional(Type.Number()),
-        beatmapId: Type.Optional(Type.Number()),
-        mods: Type.Optional(Type.Array(Type.String())),
-        combo: Type.Optional(Type.Number()),
-        accPercent: Type.Optional(Type.Number()),
-        droplets: Type.Optional(Type.Number()),
-        tinyDroplets: Type.Optional(Type.Number()),
-        nmiss: Type.Optional(Type.Number()),
-    }),
+        scoreId: Type.Optional(Type.Number({ description: 'Existing score ID to retrieve' })),
+        beatmapId: Type.Optional(Type.Number({ description: 'Beatmap ID to calculate performance for' })),
+        mods: Type.Optional(Type.Array(Type.String(), { description: 'Array of mod strings (e.g. HD, DT, HR)' })),
+        combo: Type.Optional(Type.Number({ description: 'Maximum combo achieved' })),
+        accPercent: Type.Optional(Type.Number({ description: 'Accuracy percentage' })),
+        droplets: Type.Optional(Type.Number({ description: 'Number of droplets caught' })),
+        tinyDroplets: Type.Optional(Type.Number({ description: 'Number of tiny droplets caught' })),
+        nmiss: Type.Optional(Type.Number({ description: 'Number of misses' }))
+    }, { description: 'Catch the Beat score parameters' }),
     response: {
-        200: PerformanceResultSchema
+        200: PerformanceResultSchema,
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
     }
 };
 
-const maniaCalcSchema = taikoCalcSchema
+const maniaCalcSchema = {
+    description: 'Calculate performance for osu!mania mode',
+    tags: ['simulator'],
+    headers: AuthHeadersSchema,
+    body: Type.Object({
+        scoreId: Type.Optional(Type.Number({ description: 'Existing score ID to retrieve' })),
+        beatmapId: Type.Optional(Type.Number({ description: 'Beatmap ID to calculate performance for' })),
+        mods: Type.Optional(Type.Array(Type.String(), { description: 'Array of mod strings (e.g. HD, DT, HR)' })),
+        n300: Type.Optional(Type.Number({ description: 'Number of 300s (perfect hits)' })),
+        n100: Type.Optional(Type.Number({ description: 'Number of 100s (good hits)' })),
+        n50: Type.Optional(Type.Number({ description: 'Number of 50s (meh hits)' })),
+        nmiss: Type.Optional(Type.Number({ description: 'Number of misses' }))
+    }, { description: 'osu!mania score parameters' }),
+    response: {
+        200: PerformanceResultSchema,
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
+    }
+};
 
 async function calcNewOsuScore(request: any, reply: any) {
     try {

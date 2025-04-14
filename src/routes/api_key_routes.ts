@@ -1,3 +1,4 @@
+import { Type } from "@sinclair/typebox";
 import ApiKeyModel from "../models/api_key";
 
 function generateApiKey(): string {
@@ -7,15 +8,74 @@ function generateApiKey(): string {
         .substring(0, 32);
 }
 
+// Define response schemas
+const ApiKeyResponseSchema = Type.Object({
+    key: Type.String({ description: 'API key value' }),
+    owner: Type.String({ description: 'Owner of the API key' }),
+    createdAt: Type.String({ description: 'Date when the API key was created', format: 'date-time' })
+}, { description: 'API key details' });
+
+const ApiKeyListItemSchema = Type.Object({
+    owner: Type.String({ description: 'Owner of the API key' }),
+    isActive: Type.Boolean({ description: 'Whether the API key is active' }),
+    createdAt: Type.String({ description: 'Date when the API key was created', format: 'date-time' }),
+    lastUsed: Type.Optional(Type.String({ description: 'Date when the API key was last used', format: 'date-time' }))
+}, { description: 'API key list item' });
+
+const MessageResponseSchema = Type.Object({
+    message: Type.String({ description: 'Response message' })
+}, { description: 'Success message response' });
+
+const ErrorResponseSchema = Type.Object({
+    error: Type.String({ description: 'Error message' })
+}, { description: 'Error response' });
+
+// Define route schemas
 const createApiKeySchema = {
-    body: {
-        type: 'object',
-        required: ['owner'],
-        properties: {
-            owner: { type: 'string' }
-        }
+    description: 'Create a new API key for a specified owner',
+    tags: ['api-keys'],
+    body: Type.Object({
+        owner: Type.String({ description: 'Owner of the API key' })
+    }, { description: 'API key creation request' }),
+    response: {
+        200: ApiKeyResponseSchema,
+        201: ApiKeyResponseSchema,
+        500: ErrorResponseSchema
     }
-}
+};
+
+const getKeysListSchema = {
+    description: 'Get a list of all API keys (admin only)',
+    tags: ['api-keys'],
+    headers: Type.Object({
+        'x-api-key': Type.String({ description: 'Admin API key for authentication' })
+    }),
+    response: {
+        200: Type.Array(ApiKeyListItemSchema, { description: 'List of API keys' }),
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        500: ErrorResponseSchema
+    }
+};
+
+const deleteKeySchema = {
+    description: 'Deactivate an API key (admin only)',
+    tags: ['api-keys'],
+    headers: Type.Object({
+        'x-api-key': Type.String({ description: 'Admin API key for authentication' })
+    }),
+    params: Type.Object({
+        key: Type.String({ description: 'API key to deactivate' })
+    }),
+    response: {
+        200: MessageResponseSchema,
+        401: ErrorResponseSchema,
+        403: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
+    }
+};
+
 async function createApiKey(request: any, reply: any) {
     const { owner } = request.body;
     const key = generateApiKey();
@@ -84,6 +144,6 @@ async function deleteKey(request: any, reply: any) {
 
 export default async function apiKeyRoutes(server: any) {
     server.post('/api/keys', { schema: createApiKeySchema }, createApiKey);
-    server.get('/api/keys', getKeysList);
-    server.delete('/api/keys/:key', deleteKey);
+    server.get('/api/keys', { schema: getKeysListSchema }, getKeysList);
+    server.delete('/api/keys/:key', { schema: deleteKeySchema }, deleteKey);
 }
