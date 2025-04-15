@@ -144,6 +144,7 @@ const maniaCalcSchema = {
         scoreId: Type.Optional(Type.Number({ description: 'Existing score ID to retrieve' })),
         beatmapId: Type.Optional(Type.Number({ description: 'Beatmap ID to calculate performance for' })),
         mods: Type.Optional(Type.Array(Type.String(), { description: 'Array of mod strings (e.g. HD, DT, HR)' })),
+        accPercent: Type.Optional(Type.Number({ description: 'Accuracy percentage' })),
         n300: Type.Optional(Type.Number({ description: 'Number of 300s (perfect hits)' })),
         n100: Type.Optional(Type.Number({ description: 'Number of 100s (good hits)' })),
         n50: Type.Optional(Type.Number({ description: 'Number of 50s (meh hits)' })),
@@ -270,6 +271,7 @@ async function calcNewManiaScore(request: any, reply: any) {
         const scoreParams: ManiaScoreParams = {
             beatmapId: request.body.beatmapId,
             mods: request.body.mods || [],
+            accPercent: request.body.accPercent,
             n300: request.body.n300,
             n100: request.body.n100,
             n50: request.body.n50,

@@ -32,6 +32,7 @@ export interface CatchScoreParams {
 export interface ManiaScoreParams {
     beatmapId: number;
     mods: string[];
+    accPercent?: number;
     n300?: number;
     n100?: number;
     n50?: number;
