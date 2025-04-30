@@ -7,7 +7,6 @@ import {
     getScoreDetails
 } from "../services/simulator";
 import { FastifyInstance } from "fastify";
-import path from 'path';
 import {
     OsuScoreParams,
     TaikoScoreParams,
@@ -183,8 +182,7 @@ async function calcNewOsuScore(request: any, reply: any) {
             largeTickMiss: request.body.largeTickMiss
         };
 
-        const parentDir = path.resolve(__dirname, '..');
-        const result = await simulateOsuPerformance(scoreParams, parentDir);
+        const result = await simulateOsuPerformance(scoreParams);
         reply.send(result);
     } catch (error) {
         reply.status(500).send(
@@ -214,8 +212,7 @@ async function calcNewTaikoScore(request: any, reply: any) {
             n100: request.body.n100
         };
 
-        const parentDir = path.resolve(__dirname, '..');
-        const result = await simulateTaikoPerformance(scoreParams, parentDir);
+        const result = await simulateTaikoPerformance(scoreParams);
         reply.send(result);
     } catch (error) {
         reply.status(500).send(
@@ -246,8 +243,7 @@ async function calcNewCatchScore(request: any, reply: any) {
             tinyDroplets: request.body.tinyDroplets
         };
 
-        const parentDir = path.resolve(__dirname, '..');
-        const result = await simulateCatchPerformance(scoreParams, parentDir);
+        const result = await simulateCatchPerformance(scoreParams);
         reply.send(result);
     } catch (error) {
         reply.status(500).send(
@@ -278,8 +274,7 @@ async function calcNewManiaScore(request: any, reply: any) {
             nmiss: request.body.nmiss
         };
 
-        const parentDir = path.resolve(__dirname, '..');
-        const result = await simulateManiaPerformance(scoreParams, parentDir);
+        const result = await simulateManiaPerformance(scoreParams);
         reply.send(result);
     } catch (error) {
         reply.status(500).send(

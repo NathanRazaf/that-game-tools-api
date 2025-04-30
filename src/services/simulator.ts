@@ -1,6 +1,7 @@
 import { execFile } from 'child_process';
 import path from 'path';
-import fs from 'fs';
+import axios from "axios";
+import getAccessToken from "../token";
 import {
     OsuScoreParams,
     PerformanceResult,
@@ -8,17 +9,20 @@ import {
     CatchScoreParams,
     ManiaScoreParams
 } from '../types/score';
-import getAccessToken from "../token";
-import axios from "axios";
+import { BeatmapCacheManager } from '../BeatmapCacheManager';
+
 
 interface SimulateParams {
     mode: 'osu' | 'taiko' | 'catch' | 'mania';
     scoreParams: OsuScoreParams | TaikoScoreParams | CatchScoreParams | ManiaScoreParams;
 }
 
-async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: string): Promise<PerformanceResult> {
+// Instantiate the BeatmapCacheManager
+const beatmapCacheManager = new BeatmapCacheManager(path.join(__dirname, '../../cache'));
+
+async function simulatePerformance({ mode, scoreParams }: SimulateParams): Promise<PerformanceResult> {
     const { beatmapId, mods, ...restParams } = scoreParams;
-    const executablePath = path.join(dir, 'perfcalc', 'PerformanceCalculator');
+    const executablePath = path.join(__dirname, '../perfcalc', 'PerformanceCalculator');
     const modsExecArray = mods.flatMap((mod) => ['-m', mod.toUpperCase()]);
 
     let execArray = ['simulate', mode, beatmapId.toString()];
@@ -46,6 +50,7 @@ async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: s
     execArray = [...execArray, ...modsExecArray, '-j'];
 
     console.log(`Executing: ${executablePath} ${execArray.join(' ')}`);
+    console.log(`Beatmap ID: ${beatmapId}`);
 
     return new Promise((resolve, reject) => {
         execFile(executablePath, execArray, (error, stdout) => {
@@ -56,13 +61,10 @@ async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: s
 
             try {
                 const lines = stdout.split('\n');
-                console.log(lines);
                 if (lines[0].includes('Downloading')) {
                     lines.shift();
                 }
                 const jsonOutput = JSON.parse(lines.join('\n'));
-
-                deleteCacheFile(beatmapId, dir);
 
                 const result: PerformanceResult = {
                     beatmap_id: beatmapId,
@@ -80,6 +82,7 @@ async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: s
                 };
 
                 console.log(`Performance calculated: ${result.pp}pp`);
+                beatmapCacheManager.accessBeatmap(beatmapId);
                 resolve(result);
             } catch (err) {
                 reject(new Error(`Failed to parse JSON: ${err instanceof Error ? err.message : 'Unknown error'}`));
@@ -88,24 +91,24 @@ async function simulatePerformance({ mode, scoreParams }: SimulateParams, dir: s
     });
 }
 
-export async function simulateOsuPerformance(scoreParams: OsuScoreParams, dir: string): Promise<PerformanceResult> {
+export async function simulateOsuPerformance(scoreParams: OsuScoreParams): Promise<PerformanceResult> {
     console.log("osu!");
-    return simulatePerformance({ mode: 'osu', scoreParams }, dir);
+    return simulatePerformance({ mode: 'osu', scoreParams });
 }
 
-export async function simulateTaikoPerformance(scoreParams: TaikoScoreParams, dir: string): Promise<PerformanceResult> {
+export async function simulateTaikoPerformance(scoreParams: TaikoScoreParams): Promise<PerformanceResult> {
     console.log("taiko!");
-    return simulatePerformance({ mode: 'taiko', scoreParams }, dir);
+    return simulatePerformance({ mode: 'taiko', scoreParams });
 }
 
-export async function simulateCatchPerformance(scoreParams: CatchScoreParams, dir: string): Promise<PerformanceResult> {
+export async function simulateCatchPerformance(scoreParams: CatchScoreParams): Promise<PerformanceResult> {
     console.log("catch!");
-    return simulatePerformance({ mode: 'catch', scoreParams }, dir);
+    return simulatePerformance({ mode: 'catch', scoreParams });
 }
 
-export async function simulateManiaPerformance(scoreParams: ManiaScoreParams, dir: string): Promise<PerformanceResult> {
+export async function simulateManiaPerformance(scoreParams: ManiaScoreParams): Promise<PerformanceResult> {
     console.log("mania!");
-    return simulatePerformance({ mode: 'mania', scoreParams }, dir);
+    return simulatePerformance({ mode: 'mania', scoreParams });
 }
 
 export async function getScoreDetails(scoreId: number): Promise<PerformanceResult> {
@@ -138,13 +141,6 @@ export async function getScoreDetails(scoreId: number): Promise<PerformanceResul
     }
 }
 
-async function deleteCacheFile(beatmapId: number, dir: string): Promise<void> {
-    const cacheFilePath = path.join(dir, './cache', `${beatmapId}.osu`);
-    console.log(`Deleting cache file: ${cacheFilePath}`);
-    if (fs.existsSync(cacheFilePath)) {
-        fs.unlinkSync(cacheFilePath);
-    }
-}
 
 function calculateGrade(stats: PerformanceResult['stats'], mods: string[]): string {
     const totalHits = (stats.great || 0) + (stats.ok || 0) + (stats.meh || 0) + (stats.miss || 0);
