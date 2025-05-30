@@ -82,6 +82,7 @@ async function simulatePerformance({ mode, scoreParams }: SimulateParams): Promi
                 };
 
                 console.log(`Performance calculated: ${result.pp}pp`);
+                console.log(result);
                 beatmapCacheManager.accessBeatmap(beatmapId);
                 resolve(result);
             } catch (err) {

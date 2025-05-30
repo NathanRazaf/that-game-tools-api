@@ -9,9 +9,9 @@ interface BeatmapCacheEntry {
 }
 
 export class BeatmapCacheManager {
-    private cacheDir: string;
-    private maxSize: number;
-    private maxFiles: number;
+    private readonly cacheDir: string;
+    private readonly maxSize: number;
+    private readonly maxFiles: number;
     private cache: Map<number, BeatmapCacheEntry>;
     private accessHeap: MinHeap<BeatmapCacheEntry>;
 
@@ -114,7 +114,7 @@ export class BeatmapCacheManager {
     }
 }
 
-class MinHeap<T> {
+export class MinHeap<T> {
     private heap: T[] = [];
     private compare: (a: T, b: T) => number;
 
